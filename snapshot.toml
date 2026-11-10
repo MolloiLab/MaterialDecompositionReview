@@ -1,0 +1,10 @@
+# Publishes the site through Snapshot (https://snapshot.show) as a custom build, not as Snapshot's
+# default notebook collection: Snapshot runs docs/build.sh in this repository's own GitHub Actions
+# and publishes docs/dist. The build is the one GitHub Pages gets, and it reuses the committed
+# notebook export, so the notebook is never run on CI. Inert until Snapshot's workflow is installed.
+title = "Material Decomposition in CT"
+type  = "build"
+
+[app]
+dir    = "docs"
+output = "dist"

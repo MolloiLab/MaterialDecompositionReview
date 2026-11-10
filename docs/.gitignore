@@ -1,0 +1,9 @@
+# The built site (docs/build.sh). docs/notebook-static/ IS tracked: the rendered notebook the site ships.
+dist/
+# The locks are tracked: Manifest-v1.12.toml (the site) and build_env/Manifest.toml (the exporter,
+# part of the export's fingerprint). A lock for another Julia version is local.
+Manifest.toml
+!build_env/Manifest.toml
+# A render in progress (docs/export_notebook.jl)
+notebook-static.*/
+__pycache__/

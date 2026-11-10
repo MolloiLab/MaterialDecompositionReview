@@ -1,0 +1,20 @@
+key,value,unit,note
+mm-n-tissues,10,,tissues and basis materials without a K-edge in range
+mm-residual-tissues-1,18,%,one energy function
+mm-residual-tissues-2,0.16,%,two energy functions
+mm-residual-edges-2,18,%,two functions with iodine and gadolinium
+mm-residual-edges-3,7.8,%,three functions with iodine and gadolinium
+mm-residual-edges-4,0.12,%,four functions with iodine and gadolinium
+mm-tin-best,0.3,mm,tin thickness with the lowest iodine bound among 0 to 1 mm
+mm-bound-iodine-no-tin,3.77,mg/cm2,iodine bound without tin
+mm-bound-iodine-best,3.08,mg/cm2,lowest iodine bound
+mm-correlation-best,-0.932,,correlation of water and iodine errors at the lowest bound
+mm-determined-se-2,1,,amounts determined at the 1% limit
+mm-determined-se-3,1,,amounts determined at the 1% limit
+mm-determined-se-5,1,,amounts determined at the 1% limit
+mm-determined-de-2,2,,amounts determined at the 1% limit
+mm-determined-de-3,2,,amounts determined at the 1% limit
+mm-determined-de-5,2,,amounts determined at the 1% limit
+mm-determined-pc-2,2,,amounts determined at the 1% limit
+mm-determined-pc-3,3,,amounts determined at the 1% limit
+mm-determined-pc-5,3,,amounts determined at the 1% limit

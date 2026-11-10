@@ -1,0 +1,1 @@
+[{"arg_types":["Int64"],"bonds":["tin_tenths"],"cells":[{"id":"4d445200-0000-4000-8000-000000000068","ok":true},{"id":"4d445200-0000-4000-8000-000000000750","ok":true},{"id":"4d445200-0000-4000-8000-000000000752","ok":true}],"fallback_kind":null,"judgement":"island","oracle_samples":5,"oracle_skipped":null,"reasons":[]}]

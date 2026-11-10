@@ -1,0 +1,28 @@
+# Julia
+LocalPreferences.toml
+*.jl.cov
+*.jl.*.cov
+*.jl.mem
+
+# Pluto and SpaceStation
+*.pluto-cache.toml
+*.sessions.toml
+
+# LaTeX
+paper/*.aux
+paper/*.log
+paper/*.out
+paper/*.pdf
+paper/*.synctex.gz
+
+# The built site and its tooling
+docs/dist/
+
+# Local instructions and scratch
+/CLAUDE.md
+.claude/
+local_scratch/
+.DS_Store
+
+# Python
+__pycache__/

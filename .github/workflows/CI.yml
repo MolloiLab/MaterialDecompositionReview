@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ startsWith(github.ref, 'refs/pull/') }}
+
+jobs:
+  # Fatou formats and lints every Julia file with its defaults (fatou.toml). docs/fatou.jl covers
+  # the Julia its walk cannot format as files: the cells of the Pluto notebook.
+  fatou:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jolars/fatou-action@v1
+        with:
+          version: v0.26.1
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: '1.12'
+      - name: Notebook cells are Fatou-formatted
+        run: julia --startup-file=no docs/fatou.jl
+      - name: Notebook lints clean
+        run: fatou lint notebooks/*.jl
+
+  # The committed notebook export must match the notebook and the environments it was rendered
+  # from, and every slider must have compiled to a WebAssembly island. A pull request
+  # that changes the notebook without re-rendering fails here, before it reaches the site.
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Notebook export is current
+        run: python3 docs/verify_notebook_export.py

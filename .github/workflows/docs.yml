@@ -1,0 +1,59 @@
+name: Build and Deploy Site
+
+# The site is one page: the notebook, hosted on GitHub Pages. It is built from `main` whenever a
+# push changes the site, the notebook or the environment the notebook runs in, or by hand from
+# the Actions tab. The notebook is not rendered here: the page embeds the committed
+# export in docs/notebook-static/ (made by docs/render_notebook.sh), and docs/build.sh refuses an
+# export that is stale against the notebook being built.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docs/**"
+      - "notebooks/**"
+      - "Project.toml"
+      - "Manifest-v1.12.toml"
+      - ".github/workflows/docs.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: '1.12'
+
+      - uses: julia-actions/cache@v2
+
+      - name: Build the site
+        run: docs/build.sh
+
+      - uses: actions/configure-pages@v4
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs/dist
+
+  deploy:
+    needs: build
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

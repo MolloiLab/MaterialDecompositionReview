@@ -1,0 +1,358 @@
+% main_clean.tex -- the manuscript, and the only hand-edited paper file. BLUEPRINT.md is its design.
+% Order of the contributions, everywhere: (1) a common measurement model, (2) a taxonomy by three questions,
+% (3) a review of each class with one representative method, (4) every representative method on the same scans.
+% Math (2026-11-10): as little as the argument needs, in the notation of the papers each class comes from, with
+% the source of the notation stated. No new symbols. The simplest form of an algorithm is the one shown.
+% Conventions: every number is \V{key} from values.tex (make_values.py, from the notebook's results/*.csv);
+% every figure is written by the notebook; the reference list is built by make_references.py from
+% LITERATURE.md; \outline{} is the plan of a section not yet written and \pending{} an open item, both red.
+\documentclass[10pt,letterpaper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{newtxtext}
+\usepackage[letterpaper,textwidth=6.5in,textheight=9in,top=1in,footskip=30pt]{geometry}
+\usepackage{amsmath,amssymb,bm,mathtools}
+\usepackage{microtype}
+\usepackage[table]{xcolor}
+\usepackage{graphicx}
+\graphicspath{{figures/}}
+\usepackage{booktabs}
+\usepackage{siunitx}
+\usepackage{array}
+\usepackage{caption}
+\captionsetup{labelfont=bf}
+\usepackage[hidelinks]{hyperref}
+% In-text references to floats, sections, and equations: the whole "Fig. 2" is bold and is the link.
+\newcommand{\xref}[3][]{\hyperref[#3]{\textbf{#2~\ref*{#3}#1}}}
+\newcommand{\xeq}[1]{\hyperref[#1]{\textbf{Eq.~(\ref*{#1})}}}
+\usepackage{cite}
+
+% Paragraphs: no indent, a small gap between them.
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{5.5pt}
+
+% Section headings: bold, modest sizes.
+\makeatletter
+\renewcommand\section{\@startsection{section}{1}{\z@}%
+  {-2.0ex \@plus -0.5ex \@minus -0.2ex}{1.5ex \@plus 0.3ex}{\large\bfseries}}
+\renewcommand\subsection{\@startsection{subsection}{2}{\z@}%
+  {-1.8ex \@plus -0.5ex \@minus -0.2ex}{0.8ex \@plus 0.2ex}{\normalsize\bfseries}}
+
+% Title block: small-caps title, no rules, centered authors.
+\renewcommand{\@maketitle}{%
+  \begin{center}
+    {\LARGE\scshape \@title\par}
+    \vskip 0.3in
+    \@author
+  \end{center}
+  \vskip 0.15in}
+\makeatother
+
+% Floats: let figures and tables sit close to their first mention.
+\renewcommand{\topfraction}{0.9}
+\renewcommand{\bottomfraction}{0.8}
+\renewcommand{\textfraction}{0.07}
+\renewcommand{\floatpagefraction}{0.8}
+
+% ---------- Placeholders ----------
+\newcommand{\pending}[1]{{\color{red!75!black}#1}}
+\newcommand{\outline}[1]{{\color{red!75!black}\small\textit{To write.} #1}}
+% a figure the notebook has not written yet prints as a red box instead of stopping the build
+\newcommand{\figureorpending}[2]{\IfFileExists{figures/#1}{\includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{#1}}{\fbox{\parbox[c][4cm][c]{0.9\textwidth}{\centering\color{red!75!black}\small [\detokenize{#1}: #2]}}}}
+\makeatletter
+\newcommand{\V}[1]{\@ifundefined{v@#1}{{\color{red!75!black}[\detokenize{#1}]}}{\csname v@#1\endcsname}}
+\makeatother
+\IfFileExists{values.tex}{\input{values.tex}}{}
+
+\title{Material Decomposition in CT:\\One Measurement Model from Two Basis Materials\\to Multi-Material and Learned Methods}
+% Working title. Author list and affiliations to be set.
+\author{\pending{Authors and affiliations to be set}}
+\date{}
+
+\begin{document}
+
+\maketitle
+
+\begin{center}
+  {\large\scshape Abstract}
+\end{center}
+\begin{quote}
+\outline{Written last. Problem (many classes of methods, reviewed by application or by scanner), gap (no
+common framework and no common test), what was done (one measurement model, three questions, one
+representative method for each class, every method on the same simulated scans in one open notebook), what was
+found (numbers from the benchmark), why it matters.}
+
+\medskip
+\noindent\textbf{\textit{Keywords}}\quad material decomposition $\cdot$ dual-energy CT $\cdot$ photon-counting CT
+$\cdot$ multi-material decomposition $\cdot$ single-energy CT $\cdot$ deep learning
+\end{quote}
+
+% =============================================================================
+\section{Introduction}
+\label{sec:introduction}
+% =============================================================================
+
+\outline{Paragraph 1: what material decomposition is and what it is used for (iodine maps, virtual
+non-contrast and virtual monoenergetic images, tissue composition). Paragraph 2: the growth of the field. A
+PubMed search of titles and abstracts found \V{census-total-all} papers on material decomposition in CT from
+\V{census-first-year} to \V{census-last-year}, \V{census-last-all} of them in \V{census-last-year}, of which
+\V{census-total-learned} name a learning method and \V{census-total-review} are reviews (searched on
+\V{census-run}). Paragraph 3: the existing reviews, grouped by what they organize (application, scanner,
+learning), each read first. Paragraph 4: the gap. No review states every class in one model, and no two
+classes are tested on the same data. Paragraph 5: this work, with the four contributions in order.
+Paragraph 6: scope (CT with x-ray tubes, clinical energies, K-edge imaging as one rung, no phase contrast).}
+
+\begin{figure*}[!htbp]
+\centering
+\figureorpending{fig_census.pdf}{publications per year, to be written by the notebook from results/literature\_census.csv}
+\caption{\textbf{Growth of the literature on material decomposition in CT.} \outline{PubMed records per year
+that name material or basis decomposition with CT in the title or abstract, those that also name a learning
+method, and those listed as reviews.}}
+\label{fig:census}
+\end{figure*}
+
+% =============================================================================
+\section{A common measurement model}
+\label{sec:model}
+% =============================================================================
+
+Every method reviewed here starts from the same description of the measurement, so it is stated once. The
+notation is that of the projection-domain literature~\cite{alvarez1976,lehmann1981,blackprojection}, extended
+from two basis materials to $M$, and no new symbols are introduced. Over the range of diagnostic x-ray energies, the attenuation of a material can be well approximated as
+the sum of a photoelectric and a Compton component, each with its own energy dependence~\cite{alvarez1976}.
+Two materials with different energy dependence span the same two functions, so the attenuation can equally be
+written as a sum over basis materials~\cite{lehmann1981},
+\begin{equation}
+\mu(\bm r,E)=\sum_{m=1}^{M}\rho_m(\bm r)\,f_m(E),
+\label{eq:basis}
+\end{equation}
+where $f_m(E)$ is the mass attenuation coefficient of basis material $m$ at the energy $E$ and $\rho_m(\bm r)$
+is its density at the position $\bm r$. For \V{mm-n-tissues} tissues and basis materials without a K-edge
+between 20 and \SI{140}{keV}, two energy functions left \V{mm-residual-tissues-2}\% of the attenuation curves
+unexplained. A material with a K-edge in the detected spectrum does not follow the two functions and can be
+given a function of its own~\cite{roessl2007}. With iodine and gadolinium added, two functions left
+\V{mm-residual-edges-2}\% unexplained, three \V{mm-residual-edges-3}\%, and four \V{mm-residual-edges-4}\%.
+
+A CT scanner measures this attenuation with polychromatic beams. For one ray, measurement $k$ of $K$ has the
+expected value
+\begin{equation}
+\lambda_k=\int S_k(E)\,\exp\!\Big[-\sum_{m=1}^{M}f_m(E)\,A_m\Big]\,dE,
+\qquad A_m=\int_{\ell}\rho_m(\bm r)\,d\ell,
+\label{eq:forward}
+\end{equation}
+where $A_m$ is the line integral of basis material $m$ along the ray $\ell$ and $S_k(E)$ is the spectral
+response of the measurement, the expected number of photons detected per unit energy without the
+object~\cite{blackprojection}. The spectral response includes the source spectrum, the filtration, and the
+detector response, so the acquisition mechanism enters the model only through $S_k(E)$. A single-energy scan
+has $K=1$. A dual-energy scan has $K=2$, whether its two responses come from two tube potentials, two sources,
+or two detector layers~\cite{mccollough2015}. A photon-counting scan has one response for each energy
+bin~\cite{rajendran2022,mccollough2023}.
+
+Material decomposition is the inversion of \xeq{eq:forward} for the densities $\rho_m$. The methods differ in
+three respects, which organize this review (\xref{Fig.}{fig:framework}).
+
+\begin{figure*}[!htbp]
+\centering
+\figureorpending{fig_framework.pdf}{written by the notebook}
+\caption{\textbf{One measurement model and three questions.} The materials of the object attenuate a
+polychromatic beam, the scanner records $K$ spectral measurements of each ray, and a decomposition turns them
+into material maps. The methods differ in where they invert the model, in what closes the system when a voxel
+can hold more materials than the measurements determine, and in how they report the answer.}
+\label{fig:framework}
+\end{figure*}
+% SOURCE: notebooks/material_decomposition.jl, "The Chain at a Glance" -> figures/fig_framework.pdf
+
+The first is where the model is inverted. Projection-domain methods invert \xeq{eq:forward} for each ray and
+then reconstruct the line integrals $A_m$ into basis images~\cite{alvarez1976}. They keep the polychromatic
+model, and they need the $K$ measurements along the same ray path. Image-domain methods reconstruct the $K$
+measurements first and then solve a linear system in each voxel, which is simple to implement and applies to
+any acquisition but can retain beam-hardening artifacts unless they are corrected~\cite{maass2009}. One-step
+methods estimate the basis images directly from all measurements, which keeps the polychromatic model and can
+add spatial regularization at a higher computational cost~\cite{long2014}.
+
+The second is what closes the system when a voxel can hold more materials than its measurements determine.
+$K$ measurements can determine at most $K$ amounts in a voxel, and no more than the number of energy functions
+that its materials span. With a third condition, such as the
+conservation of volume or mass, two measurements can be used to estimate three materials~\cite{liu2009}, and
+one measurement two~\cite{xue2021}. Beyond this count, the information has to come from outside the voxel's own
+measurements. Multi-material decomposition restricts each voxel to one triplet from a predefined
+list~\cite{mendonca2014}, statistical methods add a penalty on the material images~\cite{long2014,xue2017},
+and learned methods take the missing information from training data~\cite{bousse2024review}.
+\xref{Table}{tab:ladder} orders the classes by this count. For a ray through \SI{20}{cm} of water and ideal
+counting detectors, a dual-energy acquisition determined \V{mm-determined-de-2} of two, \V{mm-determined-de-3}
+of three, and \V{mm-determined-de-5} of five material amounts, and four energy bins of one beam determined
+\V{mm-determined-pc-2}, \V{mm-determined-pc-3}, and \V{mm-determined-pc-5}, where an amount counts as
+determined when its singular value is above 1\% of the largest.
+
+\begin{table*}[!htbp]
+\centering
+\caption{\textbf{The classes of material decomposition, ordered by what closes the system.} $K$ is the number
+of spectral measurements of a ray or voxel.}
+\label{tab:ladder}
+\small
+\begin{tabular}{@{}llllll@{}}
+\toprule
+Class & $K$ & \shortstack[l]{Materials\\per voxel} & \shortstack[l]{Materials\\per image} & Closure & Representative \\
+\midrule
+Two-basis & 2 & 2 & 2 & none needed & Alvarez and Macovski~\cite{alvarez1976} \\
+Two-basis, more measurements & $>2$ & 2 & 2 & statistical weighting & Black et al.~\cite{blackprojection} \\
+K-edge & $\geq3$ & $\geq3$ & $\geq3$ & none needed & Roessl and Proksa~\cite{roessl2007} \\
+Three-material & 2 & 3 & 3 & conservation of volume or mass & Liu et al.~\cite{liu2009} \\
+Multi-material & 2 & $\leq3$ & $>3$ & a list of triplets, one per voxel & Mendon\c{c}a et al.~\cite{mendonca2014} \\
+Regularized multi-material & 2 & $\leq3$ & $>3$ & a penalty beside the list & Long and Fessler~\cite{long2014} \\
+Single-energy & 1 & 2 & $>2$ & conservation of volume, one pair per voxel & Xue et al.~\cite{xue2021} \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+The third is how the answer is reported. Most methods return one estimate for each voxel. Bayesian methods
+instead weigh several explanations of a measurement against prior
+knowledge~\cite{lalonde2017bayes,soltani2024bayesvnc,jiang2025}.
+
+% =============================================================================
+\section{How the measurements are made}
+\label{sec:acquisition}
+% =============================================================================
+
+\outline{Single energy, rapid kVp switching, dual source, dual layer, split filter, and photon counting, each as
+a set of spectral responses $S_k(E)$. What sets the conditioning of the inversion: spectral separation, photon
+budget, and consistent ray paths. The noise bound of the line integrals for each simulated system.}
+
+\section{Projection-domain decomposition}
+\label{sec:projection}
+
+\outline{Calibration by polynomials and tables. Maximum likelihood for each ray. Two measurements and more than
+two. Noise against the Cram\'er--Rao bound, bias at low counts, and the requirement of consistent rays.
+Representative method written out in full.}
+
+\section{Image-domain decomposition}
+\label{sec:image}
+
+\outline{Linear inversion in each voxel. Beam hardening and its precorrection. Noise amplification and the
+correlation of the basis images. Regularized image-domain decomposition. Representative method.}
+
+\section{One-step decomposition}
+\label{sec:onestep}
+
+\outline{Basis images estimated directly from the raw data. Penalized likelihood, surrogate and primal-dual
+algorithms, cost and tuning. Representative method.}
+
+\section{Beyond two materials}
+\label{sec:multimaterial}
+
+\outline{Three materials by the conservation of volume or mass. K-edge imaging with three or more measurements.
+Multi-material decomposition with a list of triplets, the choice of the triplet, and its sensitivity.
+Statistical and sparsity-regularized multi-material decomposition. Representative methods.}
+
+\section{Single-energy decomposition}
+\label{sec:single}
+
+\outline{One equation for each voxel. Pairs of materials with the conservation of volume and a rule that selects
+the pair. Optimization methods that group voxels. What one energy can and cannot determine.}
+
+\section{Probabilistic decomposition}
+\label{sec:probabilistic}
+
+\outline{Several compositions can fit one measurement. Bayesian methods, priors on tissues, and posterior
+sampling. What an uncertainty covers and how it is tested.}
+
+\section{Learned decomposition}
+\label{sec:learned}
+
+\outline{Grouped by where the physics enters: nowhere (supervised networks), the loss (physics-informed
+networks), the architecture (unrolled networks), or the output (methods fitted at test time). Grouped also by
+the source of the labels: a dual-energy decomposition, simulation, or none. Accuracy inside and outside the
+training data.}
+
+\section{What decomposition is used for}
+\label{sec:uses}
+
+\outline{Virtual monoenergetic images, virtual non-contrast images, iodine maps, electron density and effective
+atomic number, each as a linear combination of material maps, with its noise.}
+
+\section{A common benchmark}
+\label{sec:benchmark}
+
+\outline{Every representative method on the same simulated scans of the same phantoms, with the same metrics.
+The main table of the paper. Then the analyses that explain it.}
+
+\section{Discussion}
+\label{sec:discussion}
+
+\outline{Paragraphs in the order of the sections. What the framework predicts about each class. Open problems.
+Limitations of a simulated benchmark.}
+
+\section{Conclusion}
+\label{sec:conclusion}
+
+\outline{The model, the three questions, and the benchmark, in three or four sentences.}
+
+\section*{Data and code availability}
+The notebook that produces every figure and number of this paper, with every method written out, is available
+at \url{https://github.com/MolloiLab/MaterialDecompositionReview} and can be read as an interactive page at
+\url{https://molloilab.github.io/MaterialDecompositionReview}. The simulator, \texttt{BasisSimulator.jl}, is
+open source.
+
+% =============================================================================
+% References. Built by make_references.py from the verified entries of LITERATURE.md, in order of first
+% citation. Never add an entry here by hand, and never from memory.
+% =============================================================================
+% BEGIN REFERENCES (generated by make_references.py from LITERATURE.md, do not edit)
+\begin{thebibliography}{99}
+
+\bibitem{alvarez1976}
+R.~E. Alvarez and A. Macovski, ``Energy-selective reconstructions in X-ray computerised tomography,'' \emph{Phys. Med. Biol.}, vol.~21, no.~5, pp. 733--744, 1976, doi: 10.1088/0031-9155/21/5/002.
+
+\bibitem{lehmann1981}
+L.~A. Lehmann, R.~E. Alvarez, A. Macovski, W.~R. Brody, N.~J. Pelc, S.~J. Riederer, \emph{et al.}, ``Generalized image combinations in dual KVP digital radiography,'' \emph{Med. Phys.}, vol.~8, no.~5, pp. 659--667, 1981, doi: 10.1118/1.595025.
+
+\bibitem{blackprojection}
+D. Black, S. Naidu, H. Khodajou-Chokami, and S. Molloi, ``Unified projection-domain material decomposition for energy-integrating and photon-counting CT,'' 2026, arXiv:2610.30440.
+
+\bibitem{roessl2007}
+E. Roessl and R. Proksa, ``K-edge imaging in x-ray computed tomography using multi-bin photon counting detectors,'' \emph{Phys. Med. Biol.}, vol.~52, no.~15, pp. 4679--4696, 2007, doi: 10.1088/0031-9155/52/15/020.
+
+\bibitem{mccollough2015}
+C.~H. McCollough, S. Leng, L. Yu, and J.~G. Fletcher, ``Dual- and Multi-Energy CT: Principles, Technical Approaches, and Clinical Applications,'' \emph{Radiology}, vol.~276, no.~3, pp. 637--653, 2015, doi: 10.1148/radiol.2015142631.
+
+\bibitem{rajendran2022}
+K. Rajendran, M. Petersilka, A. Henning, E.~R. Shanblatt, B. Schmidt, T.~G. Flohr, \emph{et al.}, ``First Clinical Photon-counting Detector CT System: Technical Evaluation,'' \emph{Radiology}, vol.~303, no.~1, pp. 130--138, 2022, doi: 10.1148/radiol.212579.
+
+\bibitem{mccollough2023}
+C.~H. McCollough, K. Rajendran, S. Leng, L. Yu, J.~G. Fletcher, K. Stierstorfer, \emph{et al.}, ``The technical development of photon-counting detector CT,'' \emph{Eur. Radiol.}, vol.~33, no.~8, pp. 5321--5330, 2023, doi: 10.1007/s00330-023-09545-9.
+
+\bibitem{maass2009}
+C. Maa{\ss}, M. Baer, and M. Kachelrie{\ss}, ``Image-based dual energy CT using optimized precorrection functions: A practical new approach of material decomposition in image domain,'' \emph{Med. Phys.}, vol.~36, no.~8, pp. 3818--3829, 2009, doi: 10.1118/1.3157235.
+
+\bibitem{long2014}
+Y. Long and J.~A. Fessler, ``Multi-Material Decomposition Using Statistical Image Reconstruction for Spectral CT,'' \emph{IEEE Trans. Med. Imag.}, vol.~33, no.~8, pp. 1614--1626, 2014, doi: 10.1109/tmi.2014.2320284.
+
+\bibitem{liu2009}
+X. Liu, L. Yu, A.~N. Primak, and C.~H. McCollough, ``Quantitative imaging of element composition and mass fraction using dual-energy CT: Three-material decomposition,'' \emph{Med. Phys.}, vol.~36, no.~5, pp. 1602--1609, 2009, doi: 10.1118/1.3097632.
+
+\bibitem{xue2021}
+Y. Xue, W. Qin, C. Luo, P. Yang, Y. Jiang, T. Tsui, \emph{et al.}, ``Multi-Material Decomposition for Single Energy CT Using Material Sparsity Constraint,'' \emph{IEEE Trans. Med. Imag.}, vol.~40, no.~5, pp. 1303--1318, 2021, doi: 10.1109/tmi.2021.3051416.
+
+\bibitem{mendonca2014}
+P.~R.~S. Mendonca, P. Lamb, and D.~V. Sahani, ``A Flexible Method for Multi-Material Decomposition of Dual-Energy CT Images,'' \emph{IEEE Trans. Med. Imag.}, vol.~33, no.~1, pp. 99--116, 2014, doi: 10.1109/tmi.2013.2281719.
+
+\bibitem{xue2017}
+Y. Xue, R. Ruan, X. Hu, Y. Kuang, J. Wang, Y. Long, \emph{et al.}, ``Statistical image-domain multimaterial decomposition for dual-energy CT,'' \emph{Med. Phys.}, vol.~44, no.~3, pp. 886--901, 2017, doi: 10.1002/mp.12096.
+
+\bibitem{bousse2024review}
+A. Bousse, V.~S.~S. Kandarpa, S. Rit, A. Perelli, M. Li, G. Wang, \emph{et al.}, ``Systematic Review on Learning-Based Spectral CT,'' \emph{IEEE Trans. Radiat. Plasma Med. Sci.}, vol.~8, no.~2, pp. 113--137, 2024, doi: 10.1109/trpms.2023.3314131.
+
+\bibitem{lalonde2017bayes}
+A. Lalonde, E. B\"ar, and H. Bouchard, ``A Bayesian approach to solve proton stopping powers from noisy multi-energy CT data,'' \emph{Med. Phys.}, vol.~44, no.~10, pp. 5293--5302, 2017, doi: 10.1002/mp.12489.
+
+\bibitem{soltani2024bayesvnc}
+M. Beikali Soltani and H. Bouchard, ``Dual virtual non-contrast imaging: a Bayesian quantitative approach to determine radiotherapy quantities from contrast-enhanced DECT images,'' \emph{Phys. Med. Biol.}, vol.~69, no.~24, p. 245008, 2024, doi: 10.1088/1361-6560/ad965f.
+
+\bibitem{jiang2025}
+X. Jiang, G.~J. Gang, and J.~W. Stayman, ``Multi-Material Decomposition Using Spectral Diffusion Posterior Sampling,'' \emph{IEEE Trans. Biomed. Eng.}, vol.~72, no.~8, pp. 2447--2461, 2025, doi: 10.1109/tbme.2025.3543747.
+
+\end{thebibliography}
+% END REFERENCES
+
+\end{document}

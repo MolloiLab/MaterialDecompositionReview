@@ -1,0 +1,5 @@
+[deps]
+Pluto = "c3e4b0f8-55cb-11ea-2926-15256bba5781"
+SHA = "ea8e919c-243c-51af-8825-aaa63cd721ce"
+Snapshot = "1e64ef43-5f79-4f6b-8e97-159df4e27032"
+WasmTarget = "9f3a1415-1112-405b-ae89-c61daf9872bd"

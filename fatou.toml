@@ -1,0 +1,10 @@
+#:schema https://fatou.dev/fatou.schema.json
+# Fatou formats and lints every Julia file of the repository with its defaults; CI checks both
+# (the `fatou` job of .github/workflows/CI.yml). The Pluto notebooks are formatted cell by cell by
+# docs/fatou.jl: Pluto rewrites its own header and markers on every save, so Fatou must not format
+# the files whole.
+exclude = [
+    "notebooks/",
+    "docs/dist/",
+    "docs/notebook-static/",
+]

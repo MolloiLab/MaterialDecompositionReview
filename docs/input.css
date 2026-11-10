@@ -1,0 +1,448 @@
+@import "tailwindcss";
+
+/* The stylesheet of the one-page site. Tailwind compiles it (Therapy runs the standalone Tailwind
+   binary, no Node needed).
+
+   Two sources, blended toward restraint:
+   - BasisSimulator.jl's docs (MIT, MolloiLab; docs/input.css): the warm paper and ink palette, the
+     type (EB Garamond for prose and headings, Optima for labels, JuliaMono for code), the violet
+     and cyan accents, the floating glass capsule and its pills, the table-of-contents rail, and
+     the rules that set a Snapshot notebook fragment in that palette ("The notebook", below).
+   - Snapshot.jl's own notebook pages (MIT; docs/input.css, `.sn-bubble`): one quiet page ground,
+     the notebook in a single soft card with a hairline ring and a low shadow, a narrow reading
+     column, and a small line of facts above the card.
+   Left out on purpose: colour washes, glows, ornaments and hover lifts. */
+
+@source "./src/**/*.jl";
+
+/* Dark mode is the `dark` class on <html>, which Therapy sets before the first paint. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: 'Optima', 'Candara', 'Palatino Linotype', 'Book Antiqua', 'EB Garamond', serif;
+  --font-serif: 'EB Garamond', 'Garamond', 'Palatino Linotype', 'Book Antiqua', Georgia, serif;
+  --font-mono: 'JuliaMono', 'JetBrains Mono', 'SF Mono', 'Fira Code', ui-monospace, Menlo, monospace;
+}
+
+/* ── Palette ──────────────────────────────────────────────────────────────
+   Every rule below reads these tokens, never a literal colour. `--sheet` is the notebook's card;
+   in light mode it is the paper colour of the notebook's figures (#f8f7f4), so they sit in the
+   page without a frame. */
+@layer base {
+  :root {
+    --bg: #f3efe7;
+    --sheet: #f8f7f4;
+    --ink: #2a2520;
+    --ink-2: #57514b;
+    --ink-3: #8a8279;
+    --hairline: rgba(42, 37, 32, 0.1);
+    --accent: #7c3aed;
+    --accent-2: #0891b2;
+    --accent-soft: rgba(124, 58, 237, 0.08);
+    --glass: rgba(250, 248, 244, 0.72);
+    --glass-edge: rgba(42, 37, 32, 0.1);
+    --glass-hi: rgba(255, 255, 255, 0.9);
+    --menu: #fbf9f5;
+    --pill-hover: rgba(42, 37, 32, 0.06);
+    --code-bg: #f0ece4;
+    --inline-code-bg: rgba(124, 58, 237, 0.07);
+    --inline-code-text: #5b21b6;
+    --plate-filter: none;
+    --shadow: 0 0 0 1px rgba(42, 37, 32, 0.08), 0 8px 24px -12px rgba(42, 37, 32, 0.18);
+    --focus: rgba(124, 58, 237, 0.7);
+  }
+
+  .dark {
+    --bg: #111110;
+    --sheet: #191816;
+    --ink: #f0ece4;
+    --ink-2: #c3bbb0;
+    --ink-3: #8a8279;
+    --hairline: rgba(255, 244, 228, 0.1);
+    --accent: #b49cff;
+    --accent-2: #3fd0e8;
+    --accent-soft: rgba(167, 139, 250, 0.12);
+    --glass: rgba(30, 28, 25, 0.72);
+    --glass-edge: rgba(255, 244, 228, 0.1);
+    --glass-hi: rgba(255, 248, 238, 0.06);
+    --menu: #1f1d1a;
+    --pill-hover: rgba(255, 248, 238, 0.09);
+    --code-bg: #0e0d0c;
+    --inline-code-bg: rgba(167, 139, 250, 0.12);
+    --inline-code-text: #d3c4ff;
+    --plate-filter: brightness(0.9) contrast(1.04);
+    --shadow: 0 0 0 1px rgba(255, 244, 228, 0.07), 0 18px 44px -20px rgba(0, 0, 0, 0.8);
+    --focus: rgba(180, 156, 255, 0.85);
+  }
+
+  html,
+  body {
+    background-color: var(--bg);
+    overscroll-behavior: none;
+    min-height: 100%;
+    overflow-x: clip;
+  }
+  html.dark { color-scheme: dark; }
+  html:not(.dark) { color-scheme: light; }
+
+  html {
+    /* 16px type up to a 1280px window, 19px at 2560px */
+    font-size: clamp(100%, 0.234vw + 13px, 118.75%);
+    scroll-behavior: smooth;
+    /* anchored headings land below the floating capsule */
+    scroll-padding-top: 5.5rem;
+    scrollbar-gutter: stable;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    color: var(--ink);
+    font-family: var(--font-serif);
+    font-feature-settings: "kern", "liga", "onum";
+    text-rendering: optimizeLegibility;
+  }
+
+  button { cursor: pointer; }
+  therapy-island { display: contents; }
+  ::selection { background: rgba(124, 58, 237, 0.2); }
+  :focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
+}
+
+/* ── Chrome ───────────────────────────────────────────────────────────── */
+@layer components {
+  /* The strip the capsule floats in: the paper fades in behind it, so text scrolling up softens
+     before it meets the glass. */
+  .mdr-top {
+    background: linear-gradient(to bottom, var(--bg) 0%, color-mix(in oklab, var(--bg) 70%, transparent) 55%, transparent 100%);
+  }
+
+  /* The floating capsule: frosted glass, a hairline edge, a lit top edge, a low shadow. */
+  .mdr-bar {
+    position: relative;
+    border-radius: 9999px;
+    background: var(--glass);
+    -webkit-backdrop-filter: blur(20px) saturate(150%);
+    backdrop-filter: blur(20px) saturate(150%);
+    box-shadow: inset 0 0 0 1px var(--glass-edge), inset 0 1px 0 var(--glass-hi), 0 8px 24px -14px rgba(42, 37, 32, 0.25);
+  }
+
+  .mdr-title {
+    font-family: var(--font-serif);
+    font-size: 1.25rem;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+    text-decoration: none;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .mdr-title em { color: var(--ink-3); }
+  @media (max-width: 479px) {
+    .mdr-title { font-size: 1.0625rem; }
+  }
+
+  .mdr-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    height: 2.25rem;
+    padding: 0 0.9rem;
+    border-radius: 9999px;
+    color: var(--ink-2);
+    font-family: var(--font-sans);
+    font-size: 0.875rem;
+    font-weight: 500;
+    text-decoration: none;
+    white-space: nowrap;
+    list-style: none;
+    transition: background 200ms, color 200ms;
+  }
+  .mdr-pill::-webkit-details-marker { display: none; }
+  .mdr-pill:hover { background: var(--pill-hover); color: var(--ink); }
+  .mdr-pill-icon { width: 2.25rem; padding: 0; }
+
+  /* The contents menu of narrow windows. Opaque: a backdrop filter nested in the capsule's own
+     would not blur. */
+  .mdr-menu {
+    border-radius: 1.25rem;
+    background: var(--menu);
+    box-shadow: var(--shadow);
+  }
+
+  .mdr-eyebrow {
+    font-family: var(--font-sans);
+    font-size: 0.6875rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+
+  .mdr-toc-link {
+    display: block;
+    padding: 0.3rem 0.75rem;
+    border-left: 1px solid var(--hairline);
+    font-size: 0.9375rem;
+    line-height: 1.3;
+    color: var(--ink-2);
+    text-decoration: none;
+    transition: color 200ms, border-color 200ms;
+  }
+  .mdr-toc-link[data-depth="3"] { padding-left: 1.5rem; font-size: 0.875rem; color: var(--ink-3); }
+  .mdr-toc-link:hover { color: var(--ink); }
+  .mdr-toc-link[data-active] { color: var(--accent); border-left-color: var(--accent); }
+
+  /* The line of facts above the notebook */
+  .mdr-meta {
+    font-family: var(--font-sans);
+    font-size: 0.8125rem;
+    color: var(--ink-3);
+  }
+  .mdr-meta a { color: var(--ink-2); text-decoration: none; transition: color 200ms; }
+  .mdr-meta a:hover { color: var(--accent); }
+  .mdr-dot {
+    display: inline-block;
+    width: 0.4rem;
+    height: 0.4rem;
+    border-radius: 9999px;
+    background: var(--accent-2);
+    transform: translateY(-0.08rem);
+  }
+
+  /* The sheet: the one card that carries the notebook. */
+  .mdr-sheet {
+    border-radius: 1.5rem;
+    background: var(--sheet);
+    box-shadow: var(--shadow);
+  }
+  @media (max-width: 639px) {
+    .mdr-sheet { border-radius: 1.125rem; }
+  }
+
+  .mdr-foot {
+    border-top: 1px solid var(--hairline);
+    font-family: var(--font-sans);
+    font-size: 0.8125rem;
+    color: var(--ink-3);
+  }
+  .mdr-foot a { color: var(--ink-2); text-decoration: none; transition: color 200ms; }
+  .mdr-foot a:hover { color: var(--accent); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+}
+
+/* ── The notebook ─────────────────────────────────────────────────────────
+   Snapshot's fragment styles itself from DaisyUI's colour tokens inside `@scope (.snap-notebook)`.
+   The site supplies those tokens here, from its own palette, so no DaisyUI stylesheet is loaded
+   and one `dark` class switches the chrome and the notebook together. Selectors start at
+   #page-content and stay unlayered: they must outrank the fragment's scoped sheet. */
+#page-content .snap-notebook {
+  color-scheme: light;
+  --color-base-100: #f8f7f4;
+  --color-base-200: #f0ece4;
+  --color-base-300: #e3dccf;
+  --color-base-content: #2a2520;
+  --color-primary: #7c3aed;
+  --color-primary-content: #ffffff;
+  --color-secondary: #0891b2;
+  --color-secondary-content: #ffffff;
+  --color-accent: #0891b2;
+  --color-accent-content: #ffffff;
+  --color-neutral: #2a2520;
+  --color-neutral-content: #f8f7f4;
+  --color-info: #7c3aed;
+  --color-info-content: #ffffff;
+  --color-success: #3f8f5f;
+  --color-success-content: #ffffff;
+  --color-warning: #b7791f;
+  --color-warning-content: #ffffff;
+  --color-error: #c2410c;
+  --color-error-content: #ffffff;
+  --radius-box: 1rem;
+  --radius-field: 0.5rem;
+  --radius-selector: 0.5rem;
+  --system-ui-font-stack: 'EB Garamond', 'Palatino Linotype', Georgia, serif;
+  --julia-mono-font-stack: 'JuliaMono', 'JetBrains Mono', 'SF Mono', 'Fira Code', ui-monospace, Menlo, monospace;
+  --snapshot-syntax-keyword: #7c3aed;
+  --snapshot-syntax-function: #1d4ed8;
+  --snapshot-syntax-type: #0e7490;
+  --snapshot-syntax-string: #3f7f3a;
+  --snapshot-syntax-number: #b45309;
+  --snapshot-syntax-macro: #be185d;
+  background: transparent;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  font-family: var(--font-serif);
+  color: var(--ink);
+}
+html.dark #page-content .snap-notebook {
+  color-scheme: dark;
+  --color-base-100: #191816;
+  --color-base-200: #0e0d0c;
+  --color-base-300: #3a342d;
+  --color-base-content: #ebe4d9;
+  --color-primary: #b49cff;
+  --color-primary-content: #1a1325;
+  --color-secondary: #3fd0e8;
+  --color-secondary-content: #062a31;
+  --color-accent: #3fd0e8;
+  --color-accent-content: #062a31;
+  --color-neutral: #ebe4d9;
+  --color-neutral-content: #1a1714;
+  --color-info: #b49cff;
+  --color-info-content: #1a1325;
+  --color-success: #7fc79a;
+  --color-success-content: #0f2418;
+  --color-warning: #e0b264;
+  --color-warning-content: #2b1d07;
+  --color-error: #f08a6c;
+  --color-error-content: #2b1007;
+  --snapshot-syntax-keyword: #c4b0ff;
+  --snapshot-syntax-function: #8cb4ff;
+  --snapshot-syntax-type: #67dbee;
+  --snapshot-syntax-string: #a9d98d;
+  --snapshot-syntax-number: #f5a97a;
+  --snapshot-syntax-macro: #f58fc0;
+}
+
+/* Prose: EB Garamond at a readable measure. Figures, tables and code use the sheet's width. */
+#page-content .snap-notebook pluto-output {
+  font-family: var(--font-serif);
+  font-size: 1.125rem;
+  line-height: 1.62;
+  background: transparent;
+}
+#page-content .snap-notebook .markdown > :is(p, ul, ol, blockquote, details, .admonition) { max-width: 44rem; }
+#page-content .snap-notebook .markdown > p:has(> img:only-child) { max-width: none; }
+#page-content .snap-notebook .snap-cells > .pl-cell:first-child { margin-top: 0; }
+#page-content .snap-notebook pluto-output :is(h1, h2, h3, h4, h5, h6) {
+  font-family: var(--font-serif);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  font-feature-settings: "kern", "liga", "onum";
+  text-wrap: balance;
+}
+/* The notebook's own first heading is the page's title. */
+#page-content .snap-notebook pluto-output h1 {
+  font-size: clamp(2.25rem, 5vw, 3.25rem);
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  margin-block: 0 1.25rem;
+  border: 0;
+}
+#page-content .snap-notebook pluto-output h2 {
+  font-size: 1.875rem;
+  line-height: 1.15;
+  margin-block-start: 2.75rem;
+  padding-bottom: 0.55rem;
+  border-bottom: 1px solid var(--hairline);
+}
+#page-content .snap-notebook pluto-output h3 { font-size: 1.4rem; font-style: italic; margin-block-start: 1.75rem; }
+#page-content .snap-notebook pluto-output h4 { font-size: 1.2rem; margin-block-start: 1.25rem; }
+#page-content .snap-notebook pluto-output :is(h2, h3) code { font-size: 0.72em; }
+#page-content .snap-notebook pluto-output strong { color: var(--ink); font-weight: 600; }
+#page-content .snap-notebook pluto-output a {
+  color: var(--accent);
+  text-decoration-color: color-mix(in oklab, var(--accent) 35%, transparent);
+  text-underline-offset: 3px;
+}
+#page-content .snap-notebook .markdown :not(pre) > code {
+  font-size: 0.76em;
+  padding: 0.08em 0.36em;
+  border-radius: 0.4em;
+  background: var(--inline-code-bg);
+  color: var(--inline-code-text);
+  overflow-wrap: anywhere;
+}
+/* The page has its own table of contents. */
+#page-content .snap-notebook nav.plutoui-toc { display: none; }
+
+/* Code cells: a slab a shade darker than the sheet, with a hairline. */
+#page-content .snap-notebook .pl-code {
+  background: var(--code-bg);
+  border-radius: 0.875rem;
+  padding: 0.8rem 1rem;
+  font-size: 0.8125rem;
+  line-height: 1.65;
+  box-shadow: inset 0 0 0 1px var(--hairline);
+}
+
+/* Markdown tables read as text (Pluto styles every table as data: monospace, right-aligned). */
+#page-content .snap-notebook .markdown :is(table, th, td) { font-family: inherit; }
+#page-content .snap-notebook .markdown td code { white-space: nowrap; }
+#page-content .snap-notebook .markdown table {
+  font-variant-numeric: lining-nums tabular-nums;
+  margin-left: 0;
+  margin-right: auto;
+  font-size: 1rem;
+  border-top: 0;
+  border-bottom: 0;
+}
+#page-content .snap-notebook .markdown :is(th, td) {
+  text-align: left;
+  font-size: inherit;
+  padding: 0.4rem 0.9rem 0.4rem 0;
+  border-bottom: 1px solid var(--hairline);
+}
+#page-content .snap-notebook .markdown th {
+  font-family: var(--font-sans);
+  font-weight: 500;
+  font-size: 0.6875rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+#page-content .snap-notebook pluto-output table > tbody tr:hover { background: var(--accent-soft); }
+
+/* Admonitions: a quiet note with a coloured hairline at the left, its title in italic serif. */
+#page-content .snap-notebook pluto-output div.admonition {
+  --adm: var(--accent);
+  border: 0;
+  border-radius: 0.875rem;
+  padding: 0.8rem 1.15rem 0.9rem;
+  background: color-mix(in oklab, var(--adm) 6%, var(--sheet));
+  box-shadow: inset 3px 0 0 var(--adm), inset 0 0 0 1px color-mix(in oklab, var(--adm) 18%, transparent);
+}
+#page-content .snap-notebook pluto-output div.admonition > .admonition-title {
+  background: none;
+  margin: 0 0 0.2rem;
+  padding: 0;
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-weight: 600;
+  font-size: 1.15rem;
+  color: var(--adm);
+}
+#page-content .snap-notebook pluto-output div.admonition:is(.tip, .compat) { --adm: var(--color-secondary); }
+#page-content .snap-notebook pluto-output div.admonition.warning { --adm: var(--color-warning); }
+#page-content .snap-notebook pluto-output div.admonition.danger { --adm: var(--color-error); }
+#page-content .snap-notebook pluto-output blockquote {
+  border-radius: 0.875rem;
+  background: var(--accent-soft);
+  box-shadow: inset 3px 0 0 var(--accent);
+  font-style: italic;
+}
+
+/* Sliders: the accent colour, and a value readout in tabular figures beside them. */
+#page-content .snap-notebook input[type="range"] { accent-color: var(--accent); max-width: 100%; }
+#page-content .snap-notebook bond output {
+  font-family: var(--font-sans);
+  font-variant-numeric: lining-nums tabular-nums;
+  color: var(--ink-2);
+}
+
+/* Figures, static (CairoMakie images) and live (WasmMakie canvases): rounded like prints. They
+   keep their light paper in dark mode, dimmed a little so they sit in the dark sheet; a CT image
+   must never be inverted. */
+#page-content .snap-notebook pluto-output :is(img, canvas) {
+  border-radius: 0.75rem;
+  max-width: 100%;
+  height: auto;
+}
+html.dark #page-content .snap-notebook pluto-output :is(img, canvas) { filter: var(--plate-filter); }
