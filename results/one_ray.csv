@@ -1,0 +1,8 @@
+key,value,unit,note
+ray-iodine,20,mg/cm2,iodine in every ray
+ray-bias-projection-max,2.0e-13,mg/cm2,largest iodine error of projection-domain inversion without noise
+ray-bias-image-max,2.77,mg/cm2,largest iodine error of the linear image-domain model without noise
+ray-bias-image-max-percent,14,%,the same as a share of the iodine in the ray
+ray-noise-draws,2000,,noisy draws of the reference ray
+ray-noise-projection,1.02,,iodine standard deviation over the bound for projection-domain inversion
+ray-noise-image,0.99,,iodine standard deviation over the bound for the linear image-domain model

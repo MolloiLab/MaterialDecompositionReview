@@ -169,7 +169,12 @@ model, and they need the $K$ measurements along the same ray path. Image-domain 
 measurements first and then solve a linear system in each voxel, which is simple to implement and applies to
 any acquisition but can retain beam-hardening artifacts unless they are corrected~\cite{maass2009}. One-step
 methods estimate the basis images directly from all measurements, which keeps the polychromatic model and can
-add spatial regularization at a higher computational cost~\cite{long2014}.
+add spatial regularization at a higher computational cost~\cite{long2014}. On one ray with
+\SI{\V{ray-iodine}}{mg/cm^2} of iodine and ideal counting detectors, projection-domain inversion returned the
+iodine to numerical precision at every water path from 5 to \SI{40}{cm}, whereas a linear image-domain model set
+at the \SI{20}{cm} ray was off by up to \V{ray-bias-image-max}~mg/cm$^2$ (\V{ray-bias-image-max-percent}\%). At
+the reference ray, the standard deviation of the iodine estimate was \V{ray-noise-projection} times the
+Cram\'er--Rao bound for projection-domain inversion and \V{ray-noise-image} times for the linear model.
 
 The second is what closes the system when a voxel can hold more materials than its measurements determine.
 $K$ measurements can determine at most $K$ amounts in a voxel, and no more than the number of energy functions

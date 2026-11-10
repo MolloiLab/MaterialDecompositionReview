@@ -146,7 +146,8 @@ the older use and says so once.
 | 12 | A common benchmark | every representative method on the same scans | the benchmark table |
 | 13 | Discussion, open problems, Conclusion | what the framework predicts and what is unsolved | none |
 
-The notebook has one part per section, in this order. Part 1, the measurement model, exists.
+The notebook has one part per section, in this order. Two parts exist: the measurement model, and a
+first inversion of one ray in the projection domain and with the linear model of the image domain.
 
 ## 7. The notebook
 

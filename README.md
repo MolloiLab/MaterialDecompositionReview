@@ -6,8 +6,9 @@ about one measurement model, and one representative method of each class is run 
 
 **Read it as an interactive page: <https://molloilab.github.io/MaterialDecompositionReview>**
 
-The project is at its start. The first part of the notebook, the measurement model, exists. The parts on the
-methods and the manuscript are being written. `BLUEPRINT.md` is the plan.
+The project is at its start. The notebook holds the measurement model and a first inversion of one ray in
+the projection domain and in the image domain. The parts on each class of methods and the manuscript are
+being written. `BLUEPRINT.md` is the plan.
 
 ## How the repository works
 

@@ -37,6 +37,12 @@ import BasisSimulator as BS
 # ╔═╡ 4d445200-0000-4000-8000-000000000006
 import CairoMakie as Mke
 
+# ╔═╡ 4d445200-0000-4000-8000-000000000009
+using Random: Xoshiro
+
+# ╔═╡ 4d445200-0000-4000-8000-000000000015
+using Statistics: std
+
 # ╔═╡ 4d445200-0000-4000-8000-000000000007
 PlutoUI.TableOfContents()
 
@@ -673,6 +679,209 @@ LADDER = [
 """How many amounts an entry of `LADDER` determines: its singular-value ratios above the limit."""
 determined(entry) = count(>(TOLERANCE), entry.ratios)
 
+# ╔═╡ 4d445200-0000-4000-8000-000000000200
+md"""
+## 6. Inverting the Model on One Ray
+
+The first question of the review is where the model is inverted. This part inverts it for one ray
+of the dual-energy acquisition above, in the two simplest ways, with water and iodine as the basis
+materials.
+
+In the projection domain, the two measurement equations are solved for the two line integrals.
+Newton's method on the logarithm of the counts does this in a few steps. With two measurements
+and two materials, this solution is also the maximum-likelihood estimate.
+
+In the image domain, decomposition works on reconstructed images. Reconstruction applies a water
+correction, which turns each measurement into the thickness of water that would give the same
+signal. Image-domain decomposition then assumes that these thicknesses are linear in the amounts
+of the materials. Here the linear model is set at a reference ray, through 20 cm of water with
+20 mg/cm² of iodine, and applied to rays with the same iodine through other thicknesses of water.
+"""
+
+# ╔═╡ 4d445200-0000-4000-8000-000000000201
+# The spectral responses of the dual-energy acquisition at the tin thickness with the lowest bound
+S_DUAL = dual_energy(BEST_TIN);
+
+# ╔═╡ 4d445200-0000-4000-8000-000000000202
+"""
+Projection-domain inversion: the line integrals whose expected counts equal the measured counts
+`y`, by Newton's method on the logarithm of the counts, from `start`.
+"""
+function invert_projection(S, F, y; start = [10.0, 0.0], steps = 20)
+    a = float.(start)
+    for _ in 1:steps
+        λ = expected_counts(S, F, a)
+        a += effective_attenuation(S, F, a) \ (log.(λ) .- log.(y))
+    end
+    return a
+end
+
+# ╔═╡ 4d445200-0000-4000-8000-000000000203
+# Thicknesses of water (g/cm²) at which the water correction is tabulated
+WATER_GRID = collect(0.0:0.1:45.0);
+
+# ╔═╡ 4d445200-0000-4000-8000-000000000204
+# The log signal of each of the two measurements behind each thickness of water alone
+WATER_CURVES = [
+    [
+        -log(
+            expected_counts(S_DUAL[k:k, :], reshape(BASIS.water, :, 1), [t])[1] /
+                sum(S_DUAL[k, :]),
+        )
+        for t in WATER_GRID
+    ]
+    for k in 1:2
+];
+
+# ╔═╡ 4d445200-0000-4000-8000-000000000205
+"""
+The water correction: the thickness of water (g/cm²) that would give measurement `k` the count
+`y`, by linear interpolation of the water curve of that measurement.
+"""
+function water_equivalent(k, y)
+    p = -log(y / sum(S_DUAL[k, :]))
+    curve = WATER_CURVES[k]
+    i = clamp(searchsortedlast(curve, p), 1, length(curve) - 1)
+    share = (p - curve[i]) / (curve[i + 1] - curve[i])
+    return WATER_GRID[i] + share * (WATER_GRID[i + 1] - WATER_GRID[i])
+end
+
+# ╔═╡ 4d445200-0000-4000-8000-000000000206
+# The linear model of the image domain, set at the reference ray (20 g/cm² of water and 0.02 g/cm²
+# of iodine): how much water-equivalent thickness one g/cm² of iodine adds to each measurement
+IODINE_RATIO = let
+    y = expected_counts(S_DUAL, F_WATER_IODINE, OPERATING_POINT)
+    [(water_equivalent(k, y[k]) - OPERATING_POINT[1]) / OPERATING_POINT[2] for k in 1:2]
+end
+
+# ╔═╡ 4d445200-0000-4000-8000-000000000207
+"""
+Image-domain decomposition of one ray: the water correction of each measured count in `y`, then
+the linear model solved for the water and iodine line integrals.
+"""
+function invert_image(y)
+    return [1.0 IODINE_RATIO[1]; 1.0 IODINE_RATIO[2]] \
+        [water_equivalent(k, y[k]) for k in 1:2]
+end
+
+# ╔═╡ 4d445200-0000-4000-8000-000000000208
+# The rays compared: water paths from 5 to 40 g/cm², each with 0.02 g/cm² of iodine
+RAY_WATER = collect(5.0:5.0:40.0);
+
+# ╔═╡ 4d445200-0000-4000-8000-000000000209
+# Both inversions of every ray, without noise
+RAY_ESTIMATES = [
+    let y = expected_counts(S_DUAL, F_WATER_IODINE, [water, OPERATING_POINT[2]])
+        (
+            water = water,
+            projection = invert_projection(S_DUAL, F_WATER_IODINE, y),
+            image = invert_image(y),
+        )
+    end
+    for water in RAY_WATER
+];
+
+# ╔═╡ 4d445200-0000-4000-8000-000000000210
+# The largest iodine error of each inversion over the rays (g/cm²), without noise
+RAY_BIAS = (
+    projection = maximum(abs(r.projection[2] - OPERATING_POINT[2]) for r in RAY_ESTIMATES),
+    image = maximum(abs(r.image[2] - OPERATING_POINT[2]) for r in RAY_ESTIMATES)
+)
+
+# ╔═╡ 4d445200-0000-4000-8000-000000000211
+# Noise at the reference ray: the standard deviation of the iodine estimate over noisy draws, as a
+# multiple of the Cramér–Rao bound. The counts are tens of thousands, so each Poisson count is
+# drawn from the normal distribution with the same mean and variance.
+NOISE_TRIAL = let
+    rng = Xoshiro(1)
+    draws = 2000
+    λ = expected_counts(S_DUAL, F_WATER_IODINE, OPERATING_POINT)
+    noisy = [λ .+ sqrt.(λ) .* randn(rng, 2) for _ in 1:draws]
+    bound = crlb(S_DUAL, F_WATER_IODINE, OPERATING_POINT)[2]
+    (
+        draws = draws,
+        projection = std([invert_projection(S_DUAL, F_WATER_IODINE, y)[2] for y in noisy]) /
+            bound,
+        image = std([invert_image(y)[2] for y in noisy]) / bound,
+    )
+end
+
+# ╔═╡ 4d445200-0000-4000-8000-000000000212
+# The readout at every position of the slider below, as plain numbers: the water path (cm), and
+# the iodine each inversion returns (mg/cm²)
+RAY_READOUTS = Tuple(
+    (
+        r.water,
+        round(1000 * r.projection[2]; digits = 2),
+        round(1000 * r.image[2]; digits = 2),
+    )
+    for r in RAY_ESTIMATES
+);
+
+# ╔═╡ 4d445200-0000-4000-8000-000000000213
+@bind ray_index PlutoUI.Slider(1:8; default = 4)
+
+# ╔═╡ 4d445200-0000-4000-8000-000000000214
+# what the readout below shows
+ray_readout = RAY_READOUTS[ray_index];
+
+# ╔═╡ 4d445200-0000-4000-8000-000000000215
+md"""
+**Water path: $(ray_readout[1]) cm.** The ray holds 20 mg/cm² of iodine. Projection-domain inversion
+returns **$(ray_readout[2]) mg/cm²**, and the linear model of the image domain returns
+**$(ray_readout[3]) mg/cm²**.
+"""
+
+# ╔═╡ 4d445200-0000-4000-8000-000000000216
+let
+    Mke.set_theme!(THEME)
+    fig = Mke.Figure(size = (1400, 900))
+    ray!(canvas(fig[1, 1], (-8, 11, -4, 3)); K = 2)
+    ax = Mke.Axis(
+        fig[2, 1];
+        title = "Iodine Error of Each Inversion, Without Noise",
+        subtitle = "Rays With 20 mg/cm² of Iodine, Linear Model Set at the 20 cm Ray",
+        xlabel = "Water Path (cm)",
+        ylabel = "Error of the Iodine Line Integral (mg/cm²)",
+    )
+    Mke.hlines!(ax, [0.0]; color = COLORS.muted, linestyle = :dash)
+    Mke.scatterlines!(
+        ax,
+        RAY_WATER,
+        [1000 * (r.image[2] - OPERATING_POINT[2]) for r in RAY_ESTIMATES];
+        color = COLORS.cyan,
+        markersize = 14,
+        label = "Image Domain, Linear Model",
+    )
+    Mke.scatterlines!(
+        ax,
+        RAY_WATER,
+        [1000 * (r.projection[2] - OPERATING_POINT[2]) for r in RAY_ESTIMATES];
+        color = COLORS.violet,
+        markersize = 14,
+        label = "Projection Domain",
+    )
+    Mke.axislegend(ax; position = :rt)
+    Mke.rowsize!(fig.layout, 1, Mke.Relative(0.25))
+    fig
+end
+
+# ╔═╡ 4d445200-0000-4000-8000-000000000217
+Markdown.parse(
+    """
+Without noise, projection-domain inversion returned the iodine of every ray to within
+$(round(1000 * RAY_BIAS.projection; sigdigits = 1)) mg/cm². The linear model of the image domain was
+off by up to $(round(1000 * RAY_BIAS.image; digits = 2)) mg/cm², which is
+$(round(Int, 100 * RAY_BIAS.image / OPERATING_POINT[2]))% of the iodine in the ray. The error is the
+beam hardening that the water correction leaves in a ray that holds iodine, and image-domain
+methods reduce it with further corrections, which a later part covers. With noise, over
+$(NOISE_TRIAL.draws) draws of the reference ray, the standard deviation of the iodine estimate was
+$(round(NOISE_TRIAL.projection; digits = 2)) times the Cramér–Rao bound for projection-domain
+inversion and $(round(NOISE_TRIAL.image; digits = 2)) times for the linear model. For this ray, the
+two inversions had nearly the same noise and differed in their error away from the reference.
+""",
+)
+
 # ╔═╡ 4d445200-0000-4000-8000-000000000079
 """`x` to two significant digits as text, without a trailing `.0`."""
 function two_digits(x)
@@ -750,15 +959,62 @@ RESULTS = [
     ]...,
 ];
 
+# ╔═╡ 4d445200-0000-4000-8000-000000000082
+# key, value, unit, note
+RAY_RESULTS = [
+    (
+        "ray-iodine",
+        string(round(Int, 1000 * OPERATING_POINT[2])),
+        "mg/cm2",
+        "iodine in every ray",
+    ),
+    (
+        "ray-bias-projection-max",
+        string(round(1000 * RAY_BIAS.projection; sigdigits = 1)),
+        "mg/cm2",
+        "largest iodine error of projection-domain inversion without noise",
+    ),
+    (
+        "ray-bias-image-max",
+        string(round(1000 * RAY_BIAS.image; digits = 2)),
+        "mg/cm2",
+        "largest iodine error of the linear image-domain model without noise",
+    ),
+    (
+        "ray-bias-image-max-percent",
+        string(round(Int, 100 * RAY_BIAS.image / OPERATING_POINT[2])),
+        "%",
+        "the same as a share of the iodine in the ray",
+    ),
+    ("ray-noise-draws", string(NOISE_TRIAL.draws), "", "noisy draws of the reference ray"),
+    (
+        "ray-noise-projection",
+        string(round(NOISE_TRIAL.projection; digits = 2)),
+        "",
+        "iodine standard deviation over the bound for projection-domain inversion",
+    ),
+    (
+        "ray-noise-image",
+        string(round(NOISE_TRIAL.image; digits = 2)),
+        "",
+        "iodine standard deviation over the bound for the linear image-domain model",
+    ),
+];
+
 # ╔═╡ 4d445200-0000-4000-8000-000000000081
 let
-    open(joinpath(@__DIR__, "..", "results", "measurement_model.csv"), "w") do io
-        println(io, "key,value,unit,note")
-        for row in RESULTS
-            println(io, join(row, ","))
+    for (file, rows) in (("measurement_model.csv", RESULTS), ("one_ray.csv", RAY_RESULTS))
+        open(joinpath(@__DIR__, "..", "results", file), "w") do io
+            println(io, "key,value,unit,note")
+            for row in rows
+                println(io, join(row, ","))
+            end
         end
     end
-    Markdown.parse("Wrote $(length(RESULTS)) values to `results/measurement_model.csv`.")
+    Markdown.parse(
+        "Wrote $(length(RESULTS)) values to `results/measurement_model.csv` and " *
+            "$(length(RAY_RESULTS)) to `results/one_ray.csv`.",
+    )
 end
 
 # ╔═╡ 4d445200-0000-4000-8000-000000000085
@@ -807,7 +1063,27 @@ CHECKS = let
     window_error = abs(sum(S) - sum(S_HIGH)) / sum(S_HIGH)
     # as many functions as curves leave no residual
     full_residual = basis_residual(F_TISSUES, size(F_TISSUES, 2))
+    # the water correction returns the thickness of a ray through water alone, off its table
+    water_ray = expected_counts(S_DUAL, F, [17.33, 0.0])
+    water_error = maximum(abs(water_equivalent(k, water_ray[k]) - 17.33) for k in 1:2)
+    # the linear model returns the reference ray it was set at
+    reference_error = abs(RAY_ESTIMATES[4].image[2] - a[2]) / a[2]
     [
+        (
+            "Projection-domain inversion of the noiseless rays, largest iodine error (g/cm²)",
+            RAY_BIAS.projection,
+            RAY_BIAS.projection < 1.0e-8,
+        ),
+        (
+            "Water correction of a ray through 17.33 cm of water, largest error (cm)",
+            water_error,
+            water_error < 1.0e-3,
+        ),
+        (
+            "Linear image-domain model at its reference ray, relative iodine error",
+            reference_error,
+            reference_error < 1.0e-2,
+        ),
         (
             "Jacobian against central differences, largest relative error",
             jacobian_error,
@@ -953,7 +1229,7 @@ limit, a chosen value, and the figure shows every ratio.
 
 # ╔═╡ 4d445200-0000-4000-8000-000000000115
 md"""
-## 7. Results for the Paper
+## 8. Results for the Paper
 
 Every number the paper states comes from this notebook. The cell below writes them to
 `results/measurement_model.csv`, and `paper/make_values.py` turns that file into the macros the
@@ -962,7 +1238,7 @@ manuscript prints.
 
 # ╔═╡ 4d445200-0000-4000-8000-000000000116
 md"""
-## 8. Verification
+## 9. Verification
 
 The functions above are checked against results that are known exactly.
 """
@@ -990,7 +1266,7 @@ in full and run on the same simulated scans of `BasisSimulator.jl`.
 
 # ╔═╡ 4d445200-0000-4000-8000-000000000118
 md"""
-## 6. The Literature in Numbers
+## 7. The Literature in Numbers
 
 How large is the field this review covers? `scripts/literature_census.py` counts the PubMed records
 of each year that name material or basis decomposition with CT in their title or abstract, those
@@ -1353,6 +1629,8 @@ learning method and $(CENSUS.total_review) are listed as reviews.
 # ╠═4d445200-0000-4000-8000-000000000005
 # ╠═4d445200-0000-4000-8000-000000000006
 # ╠═4d445200-0000-4000-8000-000000000008
+# ╠═4d445200-0000-4000-8000-000000000009
+# ╠═4d445200-0000-4000-8000-000000000015
 # ╟─4d445200-0000-4000-8000-000000000007
 # ╟─4d445200-0000-4000-8000-000000000103
 # ╠═4d445200-0000-4000-8000-000000000010
@@ -1411,6 +1689,24 @@ learning method and $(CENSUS.total_review) are listed as reviews.
 # ╠═4d445200-0000-4000-8000-000000000075
 # ╟─4d445200-0000-4000-8000-000000000760
 # ╟─4d445200-0000-4000-8000-000000000761
+# ╟─4d445200-0000-4000-8000-000000000200
+# ╠═4d445200-0000-4000-8000-000000000201
+# ╠═4d445200-0000-4000-8000-000000000202
+# ╠═4d445200-0000-4000-8000-000000000203
+# ╠═4d445200-0000-4000-8000-000000000204
+# ╠═4d445200-0000-4000-8000-000000000205
+# ╠═4d445200-0000-4000-8000-000000000206
+# ╠═4d445200-0000-4000-8000-000000000207
+# ╠═4d445200-0000-4000-8000-000000000208
+# ╠═4d445200-0000-4000-8000-000000000209
+# ╠═4d445200-0000-4000-8000-000000000210
+# ╠═4d445200-0000-4000-8000-000000000211
+# ╟─4d445200-0000-4000-8000-000000000212
+# ╠═4d445200-0000-4000-8000-000000000213
+# ╟─4d445200-0000-4000-8000-000000000214
+# ╟─4d445200-0000-4000-8000-000000000215
+# ╟─4d445200-0000-4000-8000-000000000216
+# ╟─4d445200-0000-4000-8000-000000000217
 # ╟─4d445200-0000-4000-8000-000000000118
 # ╠═4d445200-0000-4000-8000-000000000085
 # ╟─4d445200-0000-4000-8000-000000000780
@@ -1418,6 +1714,7 @@ learning method and $(CENSUS.total_review) are listed as reviews.
 # ╟─4d445200-0000-4000-8000-000000000115
 # ╠═4d445200-0000-4000-8000-000000000079
 # ╠═4d445200-0000-4000-8000-000000000080
+# ╠═4d445200-0000-4000-8000-000000000082
 # ╠═4d445200-0000-4000-8000-000000000081
 # ╟─4d445200-0000-4000-8000-000000000116
 # ╠═4d445200-0000-4000-8000-000000000090
